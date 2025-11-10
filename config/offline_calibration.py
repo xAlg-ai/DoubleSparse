@@ -44,8 +44,8 @@ def get_calib_dataset(tokenizer=None, n_samples=256, block_size=512):
 def get_q_hook(m, x, y, name, output_dict, model):
     if isinstance(y, tuple):
         y = y[0]
-    head_dim = model.config.hidden_size // model.config.num_attention_heads
-    assert y.shape[-1] == model.config.hidden_size
+    head_dim = model.config.head_dim if hasattr(model.config, "head_dim") else (model.config.hidden_size // model.config.num_attention_heads)
+    assert y.shape[-1] == model.config.num_attention_heads * head_dim
     y_max = y.view(-1, model.config.num_attention_heads, head_dim).abs().mean(dim=0).cpu().detach()
     if name not in output_dict:
         output_dict[name] = y_max
@@ -55,7 +55,7 @@ def get_q_hook(m, x, y, name, output_dict, model):
 def get_k_hook(m, x, y, name, output_dict, model):
     if isinstance(y, tuple):
         y = y[0]
-    head_dim = model.config.hidden_size // model.config.num_attention_heads
+    head_dim = model.config.head_dim if hasattr(model.config, "head_dim") else (model.config.hidden_size // model.config.num_attention_heads)
     assert y.shape[-1] == model.config.num_key_value_heads * head_dim
     y_max = y.view(-1, model.config.num_key_value_heads, head_dim).abs().mean(dim=0).cpu().detach()
     if name not in output_dict:
@@ -140,10 +140,10 @@ def get_calib_feat(model: nn.Module, tokenizer):
                 m.register_forward_hook(
                     partial(get_k_hook, name=name, output_dict=output_dict, model=model)))
         # attention hook
-        if isinstance(m, LlamaAttention) or isinstance(m, MistralAttention) or isinstance(m, MixtralAttention) or isinstance(m, MllamaTextSelfAttention) or isinstance(m, Qwen2Attention):
-            hooks.append(
-                m.register_forward_hook(
-                    partial(get_qk_hook, name=name, output_dict=output_dict), with_kwargs=True))
+        # if isinstance(m, LlamaAttention) or isinstance(m, MistralAttention) or isinstance(m, MixtralAttention) or isinstance(m, MllamaTextSelfAttention) or isinstance(m, Qwen2Attention):
+        #     hooks.append(
+        #         m.register_forward_hook(
+        #             partial(get_qk_hook, name=name, output_dict=output_dict), with_kwargs=True))
 
     print("Collecting activation scales...")
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
